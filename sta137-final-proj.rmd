@@ -1,6 +1,6 @@
 ---
 title: "STA 137 Final Project"
-author: "Yi Zhu"
+author: "Yesuunee Erdenebat", "Yi Zhu"
 date: "3/19/2020"
 output: html_document
 ---
