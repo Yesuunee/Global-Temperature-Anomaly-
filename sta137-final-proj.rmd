@@ -1,0 +1,109 @@
+---
+title: "STA 137 Final Project"
+author: "Yi Zhu"
+date: "3/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+knitr::opts_chunk$set(fig.align="center")
+```
+
+```{r}
+library(forecast)
+library(astsa)
+```
+
+```{r}
+# Import data
+library("readxl")
+temp.data <- read_excel( "Temp_NH", header=TRUE, sep="")
+```
+
+```{r}
+y <- temp.data$Temp.NH
+tm <- temp.data$Year
+trnd <-loess(y~tm, span = 0.2)
+```
+
+```{r data transformation}
+par(mfrow=c(2,2))
+plot.ts(y,ylab='y',main='Plot of y')
+plot.ts(y^.5,ylab='sqrt(y)',main='Plot of sqrt(y)')
+plot.ts(log(y),ylab='log(y)',main='Plot of log(y)')
+plot.ts(1/y^.5,ylab='1/sqrt(y)',main='Plot of 1/sqrt(y)')
+```
+
+```{r est trend&rough}
+# Trend
+plot(tm, y, type = "l", lty = 1,
+     xlab = "Time", ylab = "Temperature anomaly",
+     main = "Annual Temperature anomalies vs Year")
+
+points(tm, trnd$fitted,type = "l", lty = 2, col = "blue")
+legend("topleft", "loess", lty = 2, col = "blue")
+
+# Rough part
+plot(tm,trnd$residuals, type = "l", 
+     xlab = "Time", ylab = "Residuals", main = "Rough part")
+
+# Obtain R^2
+sse <-sum((trnd$residuals)^2)
+ssto <-sum((y-mean(y))^2)
+(R2 <- 1-sse/ssto)
+```
+
+```{r normality check}
+#par(mfrow=c(1,2))
+hist(trnd$residuals, main = "Histogram of rough part", xlab = "Rough part")
+qqnorm(trnd$residuals, main = "Normal probability plot of rough part")
+qqline(trnd$residuals)
+```
+
+```{r ACF & PACF}
+par(mfrow=c(1,2))
+acf(trnd$residuals,main="ACF", lag.max = 15)
+pacf(trnd$residuals,main="PACF",lag.max = 15)
+```
+
+```{r Model selection: AIC}
+Xhat <- trnd$residuals
+
+AIC<-matrix(0,4,4)
+for(i in 1:4){ 
+  for(j in 1:4){
+    AIC[i,j]<-arima(Xhat,order = c(i-1,0,j-1),method = "ML")$aic}}
+```
+
+```{r periodogram}
+spec.pgram(y,log="no")
+
+specselect=function(y,kmax){
+  ii=spec.pgram(y,log="no",plot=FALSE)
+  ii=ii$spec
+  cc=norm(as.matrix(ii),type="F")^2
+  ctr=rep(1,kmax)
+  
+  for(k in 1:kmax) {
+    ss=2*k+1; kk=1/(2*k)
+    ff=spec.pgram(y,spans=ss,log="no",plot=FALSE)
+    fspec=ff$spec
+    ctr[k]=norm(as.matrix(ii-fspec),type="F")^2+kk*cc
+  }
+  
+  kopt=which.min(ctr)
+  result=list(ctr=ctr,kopt=kopt)
+  return(result)
+}
+ 
+specselect(y,12)
+
+plot(c(1:12),specselect(x,12)$ctr,type="o")
+koptimal<-specselect(x,12)$kopt
+spans<-koptimal*2+1
+```
+
+### Appendix
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
